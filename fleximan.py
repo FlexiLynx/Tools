@@ -23,8 +23,9 @@ __entrypoint__ = iutil.spec_from_file_location('__entrypoint__', p.as_posix()) \
 #> Header
 context_sett = {'help_option_names': ('--help', '-h'), 'max_content_width': 160}
 Operation = StrEnum('Operation', {'SYNC': 'S'})
-val_to_op = {op.value: op for op in Operation}
-operation_doc = '\n'.join(f'-{op.value}: {op.name.lower().capitalize()}' for op in Operation)
+short_to_op = {op.value: op for op in Operation}
+long_to_op = {op.name.lower(): op for op in Operation}
+operation_doc = '\n'.join(f'{{-{op.value} --{op.name.lower()}}}: {op.name.capitalize()}(ing) operations' for op in Operation)
 ExitCode = IntEnum('ExitCode', {'SUCCESS': 0,
                                 'GENERIC': 1,
                                 'IMPROPER_USAGE': 2})
@@ -35,20 +36,27 @@ ExitCode = IntEnum('ExitCode', {'SUCCESS': 0,
 def precli(args: typing.Sequence[str] | None = None) -> tuple[Operation | ExitCode, typing.Sequence[str] | None]:
     '''A Pacman-inspired "package manager" for FlexiLynx'''
     if args is None: args = sys.argv[1:] # sys.argv as default
-    if not (args and args[0].startswith('-') and (len(args[0]) > 1)):
+    if not (args and args[0].startswith('-') and (len(args[0]) > 1)): # ``, `-`
         # args are empty or args[0] doesn't start with '-' or args[0] is only '-'
         click.echo('Error: missing operation', err=True)
         return (ExitCode.IMPROPER_USAGE, None)
     arg,*args = args
-    if arg in {'--help', '-h'}:
+    if arg in {'--help', '-h'}: # `--help`, `-h`
         click.echo(click.wrap_text(precli.__doc__, context_sett['max_content_width']))
         click.echo(precli_help)
         return (ExitCode.SUCCESS, None)
-    if len(arg) > 2: args.insert(0, f'-{arg[2:]}')
-    if (op := val_to_op.get(arg[1], None)) is not None: return (op, args)
-    click.echo(f'Error: unknown operation {arg[1]!r}', err=True)
+    if len(arg) > 2: # `-Xx`, `--xxxx`
+        if arg[1] == '-': # `--xxxx`
+            if (op := long_to_op.get(arg[2:], None)) is not None:
+                return (op, args)
+            click.echo(f'Error: unknown long-form operation {arg[2:]!r}', err=True)
+            return (ExitCode.IMPROPER_USAGE, None)
+        args.insert(0, f'-{arg[2:]}') # `-Xx` to `-X -x`
+    # `-X`
+    if (op := short_to_op.get(arg[1], None)) is not None: return (op, args)
+    click.echo(f'Error: unknown short-form operation {arg[1]!r}', err=True)
     return (ExitCode.IMPROPER_USAGE, None)
-precli_help = f'Usage: {sys.argv[0]} COMMAND [ARGS]...\n\n{operation_doc}\n--help, -h: Help (this list)'
+precli_help = f'Usage: {sys.argv[0]} COMMAND [ARGS]...\n\n{operation_doc}\n{{-h --help}}: Help (this list)'
 
 # Sync
 @click.command(context_settings=context_sett)
