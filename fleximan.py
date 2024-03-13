@@ -22,8 +22,9 @@ __entrypoint__ = iutil.spec_from_file_location('__entrypoint__', p.as_posix()) \
 
 #> Header
 context_sett = {'help_option_names': ('--help', '-h'), 'max_content_width': 160}
-Operation = StrEnum('Operation', {'SYNC': '-S'})
-operation_doc = '\n'.join(f'{op.value}: {op.name.lower().capitalize()}' for op in Operation)
+Operation = StrEnum('Operation', {'SYNC': 'S'})
+val_to_op = {op.value: op for op in Operation}
+operation_doc = '\n'.join(f'-{op.value}: {op.name.lower().capitalize()}' for op in Operation)
 ExitCode = IntEnum('ExitCode', {'SUCCESS': 0,
                                 'GENERIC': 1,
                                 'IMPROPER_USAGE': 2})
@@ -44,11 +45,9 @@ def precli(args: typing.Sequence[str] | None = None) -> tuple[Operation | ExitCo
         click.echo(precli_help)
         return (ExitCode.SUCCESS, None)
     if len(arg) > 2: args.insert(0, f'-{arg[2:]}')
-    match arg[1]:
-        case 'S': return (Operation.SYNC, args)
-        case _ as a:
-            click.echo(f'Error: unknown operation {a!r}', err=True)
-            return (ExitCode.IMPROPER_USAGE, None)
+    if (op := val_to_op.get(arg[1], None)) is not None: return (op, args)
+    click.echo(f'Error: unknown operation {arg[1]!r}', err=True)
+    return (ExitCode.IMPROPER_USAGE, None)
 precli_help = f'Usage: {sys.argv[0]} COMMAND [ARGS]...\n\n{operation_doc}\n--help, -h: Help (this list)'
 
 # Sync
