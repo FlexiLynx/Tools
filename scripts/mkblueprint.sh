@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python3.12 ./Tools/blueutils.py gen blueprint \
+FLEXILYNX_ENTRYPOINT=./FlexiLynxCore/__entrypoint__.py python3.12 ./Tools/blueutils.py gen blueprint \
     'flexilynx.core' \
     -n 'FlexiLynx Core Package' \
     -d 'Core files required to run FlexiLynx' \
