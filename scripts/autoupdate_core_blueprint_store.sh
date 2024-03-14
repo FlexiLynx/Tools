@@ -1,7 +1,15 @@
 #!/bin/bash
 
-BP=`cat ./Blueprints/flexilynx/core.json \
-| ./Tools/scripts/updblueprint.sh \
-| FLEXILYNX_ENTRYPOINT=./FlexiLynxCore/__entrypoint__.py python3.12 ./Tools/blueutils.py crypt sign - ./shae.pyk`
-echo "$BP" > ./Blueprints/flexilynx/core.json \
-    && (cd ./Blueprints/; git add flexilynx/core.json && git commit -m 'Automatically updated from commit in FlexiLynxCore' && git push)
+cat ../Blueprints/flexilynx/core.json \
+| ../Tools/scripts/add_core_bp_files.sh \
+| ../Tools/scripts/set_core_bp_metaversion.sh \
+| ../Tools/scripts/bump_bp_rel.sh \
+| ../Tools/scripts/sign_blueprint.sh > ../Blueprints/flexilynx/core.json \
+|| exit
+com=`git rev-parse --short HEAD`
+(
+    cd ../Blueprints \
+    && git add flexilynx/core.json \
+    && git commit -m "Automatically updated from $com in FlexiLynxCore" \
+    && git push
+)
