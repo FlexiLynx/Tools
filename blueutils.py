@@ -6,9 +6,12 @@ import os
 import sys
 import click
 import typing
+import operator
+from ast import literal_eval
 from pathlib import Path
 from functools import wraps
 from importlib import util as iutil
+from collections import abc as cabc
 #</Imports
 
 # Get entrypoint
@@ -177,6 +180,43 @@ def add_trust(blueprint: Blueprint, *, voucher: typing.BinaryIO, vouchee: typing
                       crypt.EdPubK.from_public_bytes(vouchee.read()) if vouchee_is_public
                       else crypt.EdPrivK.from_private_bytes(vouchee.read()).public_key(), overwrite=overwrite)
     return blueprint
+
+# Mod and Read commands #
+_g_s_next = lambda c,*v: ((operator.getitem, operator.setitem)[len(vals)-1] if isinstance(c, cabc.Mapping)
+                          else (lambda c,i: c[int(i)], lambda c,i,v: operator.setitem(c, int(i), v)) if isinstance(c, cabc.Sequence)
+                          else (getattr, setattr))[len(v)-1](c, *v)
+def _follow(cur: typing.Any, target: list[str]) -> typing.Any:
+    while target: cur = _g_s_next(cur, target.pop(0))
+    return cur
+
+@cli.command()
+@w_io
+@click.argument('key')
+@click.argument('value')
+@click.option('--as-string/--as-literal', help='Treat [VALUE] as a string or as a Python literal (default is literal), and output strings instead of literals', default=False)
+def mod(blueprint: Blueprint, *, key: str, value: str, as_string: bool) -> Blueprint:
+    '''
+        Get or set values in the blueprint
+
+        Outputs the value of [KEY] before any changes are made
+    '''
+    target = key.split('.')
+    holder = _follow(blueprint, target[:-1])
+    if not as_string: value = literal_eval(value)
+    _g_s_next(holder, target[-1], value)
+    return blueprint
+
+@cli.command()
+@w_input
+@click.argument('key')
+@click.option('--raw-output', help='Output strings instead of Python literals/`repr()`s', is_flag=True, default=False)
+def read(blueprint: Blueprint, *, key: str, raw_output: bool):
+    '''
+        Get the value from the blueprint
+
+        Outputs strings instead of `repr()`s/literals if --raw-output
+    '''
+    click.echo((str if raw_output else repr)(_follow(blueprint, key.split('.'))))
 
 # Main
 if __name__ == '__main__': cli()
